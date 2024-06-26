@@ -6,98 +6,96 @@
 #include <streambuf>
 #include <map>
 
-wchar_t ConvertChar(wchar_t ch) 
+struct KeyState
 {
-    wchar_t result;
-    std::map<wchar_t, wchar_t> converts = {
-        {',', 0xbc},
-        {'`', 0xc0},
-        {';', 0xba},
-        {'[', 0xdb},
-        {']', 0xdd},
-        {'\'', 0xde},
-        {'.', 0xbe},
-        {'\n', 0x0d}
-    };
-    if (converts.find(ch) != converts.end())
-        return converts[ch];
-    return ch;
-}
+    wchar_t KeyValue;
+    bool UpperCase;
+    void Press();
+};
 
-void PressButtonWithShift(wchar_t character)
+void KeyState::Press()
 {
-    INPUT input = { 0 };
-    const SHORT key = VkKeyScan(character + 0x20);
-    const UINT mappedKey = MapVirtualKey(LOBYTE(key), 0);
+    auto KeyDown = [](WORD wScan) {
+        INPUT input = { 0 };
+        input.type = INPUT_KEYBOARD;
+        input.ki.dwFlags = KEYEVENTF_SCANCODE;
+        input.ki.wScan = wScan;
+        SendInput(1, &input, sizeof(input));
+        };
+    auto KeyUp = [](WORD wScan) {
+        INPUT input = { 0 };
+        input.type = INPUT_KEYBOARD;
+        input.ki.dwFlags = KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP;
+        input.ki.wScan = wScan;
+        SendInput(1, &input, sizeof(input));
+        };
 
-    input.type = INPUT_KEYBOARD;
-    input.ki.dwFlags = KEYEVENTF_SCANCODE;
-    input.ki.wScan = MapVirtualKey(VK_LSHIFT, 0);
-    SendInput(1, &input, sizeof(input));
-
-    input.type = INPUT_KEYBOARD;
-    input.ki.dwFlags = KEYEVENTF_SCANCODE;
-    input.ki.wScan = mappedKey;
-    SendInput(1, &input, sizeof(input));
-
-    input.type = INPUT_KEYBOARD;
-    input.ki.dwFlags = KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP;
-    input.ki.wScan = mappedKey;
-    SendInput(1, &input, sizeof(input));
-
-    input.type = INPUT_KEYBOARD;
-    input.ki.dwFlags = KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP;
-    input.ki.wScan = MapVirtualKey(VK_LSHIFT, 0);
-    SendInput(1, &input, sizeof(input));
-}
-
-void PressButton(wchar_t character) 
-{
-    INPUT input = { 0 };
     SHORT key = 0x0;
-    if (character == 0x20)
-        key = 0x20;
+    if (VkKeyScan(KeyValue) == -1)
+        key = KeyValue;
+    else 
+        key = VkKeyScan(KeyValue);
+
+    const UINT mappedKey = MapVirtualKey(LOBYTE(key), 0);
+    if (UpperCase)
+    {
+        KeyDown(MapVirtualKey(VK_LSHIFT, 0));
+        KeyDown(mappedKey);
+        KeyUp(MapVirtualKey(VK_LSHIFT, 0));
+    }
     else
     {
-        if (VkKeyScan(character - 0x20) == -1)
-            key = character;
-        else
-            key = VkKeyScan(character);
+        KeyDown(mappedKey);
     }
-    const UINT mappedKey = MapVirtualKey(LOBYTE(key), 0);
-
-    input.type = INPUT_KEYBOARD;
-    input.ki.dwFlags = KEYEVENTF_SCANCODE;
-    input.ki.wScan = mappedKey;
-    SendInput(1, &input, sizeof(input));
 }
 
-void SimulateKeyPress(std::vector<wchar_t> v) 
+KeyState ConvertChar(wchar_t ch) 
 {
-    for (int i = 0; i < v.size(); i++) 
+    if (isupper(ch))
+        return { ch, true };
+
+    std::map<wchar_t, KeyState> converts = {
+        {',', {0xbc, false}},
+        {'<', {0xbc, true}},
+        {'`', {0xc0, false}},
+        {'~', {0xc0, true}},
+        {';', {0xba, false}},
+        {':', {0xba, true}},
+        {'[', {0xdb, false}},
+        {'{', {0xdb, true}},
+        {']', {0xdd, false}},
+        {'}', {0xdd, true}},
+        {'\'', {0xde, false}},
+        {'\"', {0xde, true}},
+        {'.', {0xbe, false}},
+        {'>', {0xbe, true}},
+        {'\n', {0x0d, false}}
+    };
+
+    if (converts.find(ch) != converts.end())
+        return converts[ch];
+    return {ch, false};
+}
+
+void SimulateKeyPress(std::vector<KeyState> Keys)
+{
+    auto ShowLogs = [](KeyState key) 
+        {
+        std::cout
+            << '\n'
+            << std::hex << key.KeyValue
+            << " " << isupper(key.KeyValue);
+        };
+
+    for (auto& key : Keys)
     {
-        std::cout 
-            << '\n' 
-            << std::hex << v[i] 
-            << " " << ConvertChar(v[i]) 
-            << " " << isupper(v[i]);
-
-        v[i] = ConvertChar(v[i]);
-
-        if (isupper(v[i]))
-        {
-            PressButtonWithShift(v[i]);
-        }
-        else 
-        {
-            PressButton(v[i]);
-        }
-        //Sleep(1);
+        ShowLogs(key);
+        key.Press();
     }
 }
 
-std::string getFileText() {
-
+std::string getFileText() 
+{
     std::ifstream inputFile("input.txt");
     std::string str;
     std::string file_contents;
@@ -110,23 +108,23 @@ std::string getFileText() {
     return file_contents;
 }
 
-int main() {
+int main() 
+{
+    SetConsoleCP(65001);
+    SetConsoleOutputCP(65001);
     for (size_t i = 0; i < 5; i++)
     {
         std::cout << i << std::endl;
         Sleep(1000);
     }
-    SetConsoleCP(65001);
-    SetConsoleOutputCP(65001);
 
     std::string text = getFileText();
-    std::vector<wchar_t> v;
-    std::cout << "\nhx ks Upper\n";
+    std::vector<KeyState> Keys;
+
     for (char i : text) 
     {
-        v.emplace_back(i);
+        Keys.emplace_back(ConvertChar(i));
     }
-    SimulateKeyPress(v);
-    std::cout << "\n" << "==============\n";
+    SimulateKeyPress(Keys);
     return 0;
 }
