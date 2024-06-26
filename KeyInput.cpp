@@ -47,6 +47,7 @@ void KeyState::Press()
     {
         KeyDown(mappedKey);
     }
+    Sleep(100); // set for more realistic look
 }
 
 KeyState ConvertChar(wchar_t ch) 
@@ -101,10 +102,7 @@ std::string getFileText()
     std::string file_contents;
 
     while (std::getline(inputFile, str)) 
-    {
-        file_contents += str;
-        file_contents.push_back('\n');
-    }
+        file_contents += str + "\n";
     return file_contents;
 }
 
@@ -112,7 +110,7 @@ int main()
 {
     SetConsoleCP(65001);
     SetConsoleOutputCP(65001);
-    for (size_t i = 0; i < 5; i++)
+    for (size_t i = 5; i > 0; i--)
     {
         std::cout << i << std::endl;
         Sleep(1000);
