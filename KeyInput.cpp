@@ -33,7 +33,7 @@ void KeyState::Press()
     SHORT key = 0x0;
     if (VkKeyScan(KeyValue) == -1)
         key = KeyValue;
-    else 
+    else
         key = VkKeyScan(KeyValue);
 
     const UINT mappedKey = MapVirtualKey(LOBYTE(key), 0);
@@ -47,7 +47,8 @@ void KeyState::Press()
     {
         KeyDown(mappedKey);
     }
-    Sleep(100); // set for more realistic look
+    std::cout << "\npressed: " << KeyValue << " : " << key << std::endl;
+    Sleep(100);
 }
 
 KeyState ConvertChar(wchar_t ch) 
@@ -55,7 +56,10 @@ KeyState ConvertChar(wchar_t ch)
     if (isupper(ch))
         return { ch, true };
 
-    std::map<wchar_t, KeyState> converts = {
+    std::map<wchar_t, KeyState> converts = 
+    {
+        //     code  isUpper
+
         {',', {0xbc, false}},
         {'<', {0xbc, true}},
         {'`', {0xc0, false}},
@@ -102,7 +106,9 @@ std::string getFileText()
     std::string file_contents;
 
     while (std::getline(inputFile, str)) 
+    {
         file_contents += str + "\n";
+    }
     return file_contents;
 }
 
@@ -110,6 +116,12 @@ int main()
 {
     SetConsoleCP(65001);
     SetConsoleOutputCP(65001);
+
+    HWND hCon = GetConsoleWindow();
+    DWORD dwNewKeybLayout = 0x00000409;
+    PostMessage(hCon, WM_INPUTLANGCHANGEREQUEST, 0, (LPARAM)dwNewKeybLayout);
+    PostMessage(hCon, WM_INPUTLANGCHANGE, 0, (LPARAM)dwNewKeybLayout);
+
     for (size_t i = 5; i > 0; i--)
     {
         std::cout << i << std::endl;
@@ -118,6 +130,7 @@ int main()
 
     std::string text = getFileText();
     std::vector<KeyState> Keys;
+
 
     for (char i : text) 
     {
